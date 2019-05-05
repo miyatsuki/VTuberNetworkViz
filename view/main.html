@@ -1,0 +1,71 @@
+<html>
+    <head>
+        <meta charset="utf-8"/>
+        <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/pca-js@1.0.0/pca.min.js"></script>
+
+        <script type="text/javascript" src="plot_data.js" charset="UTF-8"></script>
+        <script type="text/javascript" src="graph.js" charset="UTF-8"></script>
+        <!-- Compiled and minified CSS -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+
+        <!-- Compiled and minified JavaScript -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+ 
+       <!--Import Google Icon Font-->
+       <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+ 
+       <!--Let browser know website is optimized for mobile-->
+       <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    </head>
+    <body>
+        <div id="app">
+            <div class="row">
+                <nav>
+                    <div class="nav-wrapper">
+                        <a href="#" class="brand-logo">VSinger可視化ツール(仮)</a>
+                    </div>
+                </nav>
+            </div>
+            <div class="row">
+                <div class="col s12 xl12">
+                        <div class="card">
+                            <div class="card-title">
+                                VTuberプロット(にじさんじ）
+                            </div>
+                            <div class="card-image">
+                                <svg viewbox="0 0 800 800">
+                                    <line x1=400 y1=0 x2=400 y2=800 stroke="black"></line>
+                                    <line x1=0 y1=400 x2=800 y2=400 stroke="black"></line>
+                                        
+                                    <g v-for="(pos_info, index) in items">
+                                        <g v-for="(times, to_index) in collab_times_mat[index]">
+                                            <line v-if="times > 0" 
+                                                :x1="(pos_info.posX+1)*400" :y1="(-pos_info.posY+1)*400"
+                                                :x2="(items[to_index].posX+1)*400" :y2="(-items[to_index].posY+1)*400"
+                                                stroke="black" :stroke-width="getLineWidth(index, to_index)*30" :style="{'stroke-opacity': Math.sqrt(times)*0.05}"></line>
+                                        </g>
+                                    </g>
+    
+                                    <g v-for="(pos_info, index) in items">
+                                        <clipPath :id="getClipDefName(pos_info)">
+                                            <circle :cx="(pos_info.posX+1)*400" :cy="(-pos_info.posY+1)*400" :r="12">
+                                        </clipPath>            
+                                        <title>{{ pos_info.name }}</title>
+                                        <image :xlink:href="pos_info.url" :x="(pos_info.posX+1)*400-12" :y="(-pos_info.posY+1)*400-12" height="24" width="24" opacity="0.9" :style="getClipUsageName(pos_info)"/>
+                                        <circle :cx="(pos_info.posX+1)*400" :cy="(-pos_info.posY+1)*400" r=12 :fill="getDebutTypeColor(pos_info)" :stroke="getDebutTypeColor(pos_info)" stroke-width="2" fill-opacity="0.2"></circle>
+
+                                        <!--
+                                            <text :x="(pos_info.posX+1)*400-40" :y="(-pos_info.posY+1)*400-10">{{ pos_info.name }}</text>
+                                        -->
+                                    </g>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
