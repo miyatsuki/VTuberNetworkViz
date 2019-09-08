@@ -19,15 +19,6 @@ video_url = 'https://www.googleapis.com/youtube/v3/videos'
 with open('../secrets.json', "r") as f:
     secrets = json.load(f)
 
-# load ignore list
-ignore_channel_list = []
-with open('../data/ignore_channels.tsv', "r", encoding='utf-8') as fr:
-    tsv = csv.reader(fr, delimiter='\t')
-
-    for row in tsv:
-        channel_id = row[1]
-        ignore_channel_list.append(channel_id)
-
 # channel -> playlist
 with open('../data/channels_2434.tsv', "r", encoding='utf-8') as fr:
     with open('../data/playlist_2434.tsv', "w", encoding='utf-8') as fw:
@@ -37,13 +28,10 @@ with open('../data/channels_2434.tsv', "r", encoding='utf-8') as fr:
             pageToken = ""
             channel_id = row[1]
 
-            if channel_id in ignore_channel_list:
-                continue
-
             param = {
                 'key': secrets["youtube_dataAPI_token"]
                 , 'id': channel_id
-                , 'part': 'snippet, contentDetails'
+                , 'part': 'snippet, contentDetails, statistics'
                 , 'maxResults': '50'
                 , 'pageToken': pageToken
             }
@@ -56,17 +44,14 @@ with open('../data/channels_2434.tsv', "r", encoding='utf-8') as fr:
                 channel_name = channel_result["items"][0]["snippet"]["title"]
                 playlist_id = channel_result["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
                 thumbnail_image_url = channel_result["items"][0]["snippet"]["thumbnails"]["medium"]["url"]
-                fw.write(channel_name + "\t" + channel_id + "\t" + playlist_id + "\t" + thumbnail_image_url + "\n")
-                print(channel_name + "\t" + channel_id + "\t" + playlist_id + "\t" + thumbnail_image_url)
+                subscriberCount = channel_result["items"][0]["statistics"]["subscriberCount"]
+
+                fw.write("\t".join([channel_name, channel_id, playlist_id, thumbnail_image_url, subscriberCount]) + "\n")
+                print("\t".join([channel_name, channel_id, playlist_id, thumbnail_image_url, subscriberCount]))
 
             sleep(1)
 
-sys.exit(1)
-
-
 # playlist -> videolist
-#channel_set = set()
-#channel_map = {}
 with open('../data/playlist_2434.tsv', "r", encoding='utf-8') as fr:
     with open('../data/video_list_2434.tsv', "w", encoding='utf-8') as fw:
         tsv = csv.reader(fr, delimiter='\t')
@@ -80,7 +65,7 @@ with open('../data/playlist_2434.tsv', "r", encoding='utf-8') as fr:
                 param = {
                     'key': secrets["youtube_dataAPI_token"]
                     , 'playlistId': playlist_id
-                    , 'part': 'contentDetails'
+                    , 'part': 'snippet, contentDetails'
                     , 'maxResults': '50'
                     , 'pageToken': pageToken
                 }
@@ -96,9 +81,10 @@ with open('../data/playlist_2434.tsv', "r", encoding='utf-8') as fr:
                 id_list = []
                 for i in range(len(playlist_result["items"])):
                     video_id = playlist_result["items"][i]["contentDetails"]["videoId"]
+                    publishedAt = playlist_result["items"][i]["snippet"]["publishedAt"]
 
-                    fw.write(channel_name + "\t" + channel_id + "\t" + video_id + "\n")
-                    print(channel_name + "\t" + channel_id + "\t" + video_id)
+                    fw.write(channel_name + "\t" + channel_id + "\t" + video_id + "\t" + publishedAt + "\n")
+                    print(channel_name + "\t" + channel_id + "\t" + video_id + "\t" + publishedAt)
                         
                 sleep(1)
 
@@ -106,20 +92,19 @@ with open('../data/playlist_2434.tsv', "r", encoding='utf-8') as fr:
                 if "nextPageToken" in playlist_result:
                     pageToken = playlist_result["nextPageToken"]
                 else:
-                    #channel_set.add(channel_id)
-                    #channel_map[channel_id] = channel_name
                     break
 
 # videolist -> collab_list
 exist_video_set = set()
 with open('../data/collab_list_2434.tsv', "r", encoding='utf-8') as fr:
+    tsv = csv.reader(fr, delimiter='\t')
+
     for row in tsv:
         channel_name = row[0]
         channel_id = row[1]
         video_id = row[2]
         collab_channel_id = row[3]
-
-        exist_video_list.add(video_id)
+        exist_video_set.add(video_id)
 
 new_video_id_list = []
 with open('../data/video_list_2434.tsv', "r", encoding='utf-8') as fr:
@@ -161,8 +146,8 @@ with open('../data/collab_list_2434.tsv', "a", encoding='utf-8') as fw:
             for str_tup in m:
                 collab_id = str_tup[2]
 
-                # 自分のチャンネル or ignore対象だったら飛ばす
-                if channel_id == collab_id or collab_id in ignore_channel_list:
+                # 自分のチャンネルだったら飛ばす
+                if channel_id == collab_id:
                     continue
 
                 # typo? とかでinvalidなid拾うことがあるのでチェック
@@ -179,17 +164,3 @@ with open('../data/collab_list_2434.tsv', "a", encoding='utf-8') as fw:
                 print(channel_name + "\t" + channel_id + "\t" + video_id + "\t" + "")
 
         sleep(1)
-
-
-"""
-# save channel list
-with open('../data/channels_2434.tsv', "w", encoding='utf-8') as fw:
-    for channel_id in channel_set:
-        if channel_id in ignore_channel_list:
-            continue
-
-        if channel_id in channel_map:
-            fw.write(channel_map[channel_id] + "\t" + channel_id + "\n")
-        else:
-            fw.write("\t" + channel_id + "\n")
-"""
