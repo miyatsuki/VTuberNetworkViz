@@ -12,6 +12,7 @@ import shutil
 
 bin_dir=os.path.dirname(os.path.abspath(__file__))
 data_dir = os.path.normpath(os.path.join(bin_dir, '../data/'))
+base_dir = os.path.normpath(os.path.join(bin_dir, '../'))
 
 channel_url = 'https://www.googleapis.com/youtube/v3/channels'
 playlist_url = 'https://www.googleapis.com/youtube/v3/playlistItems'
@@ -22,7 +23,7 @@ video_url = 'https://www.googleapis.com/youtube/v3/videos'
 #{
 #    "youtube_dataAPI_token": "YOUR API TOKEN"
 #}
-with open('../secrets.json', "r") as f:
+with open(base_dir + '/secrets.json', "r") as f:
     secrets = json.load(f)
 
 yyyymmdd = datetime.date.today().strftime("%Y%m%d")
