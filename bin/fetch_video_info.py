@@ -36,8 +36,6 @@ os.mkdir(prefix)
 shutil.copy(data_dir + '/channels_2434.tsv', prefix)
 shutil.copy(data_dir + '/' + yesterday+ '/collab_list_2434.tsv', prefix)
 
-sys.exit(0)
-
 # channel -> playlist
 with open(prefix + '/channels_2434.tsv', "r", encoding='utf-8') as fr:
     with open(prefix + '/playlist_2434.tsv', "w", encoding='utf-8') as fw:
