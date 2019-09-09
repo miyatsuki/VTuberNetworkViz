@@ -6,6 +6,12 @@ import json
 from time import sleep
 import sys
 import re
+import os
+import datetime
+import shutil
+
+bin_dir=os.path.dirname(os.path.abspath(__file__))
+data_dir = os.path.normpath(os.path.join(bin_dir, '../data/'))
 
 channel_url = 'https://www.googleapis.com/youtube/v3/channels'
 playlist_url = 'https://www.googleapis.com/youtube/v3/playlistItems'
@@ -19,9 +25,21 @@ video_url = 'https://www.googleapis.com/youtube/v3/videos'
 with open('../secrets.json', "r") as f:
     secrets = json.load(f)
 
+yyyymmdd = datetime.date.today().strftime("%Y%m%d")
+yesterday = (datetime.date.today() - datetime.timedelta(days=1)).strftime("%Y%m%d")
+
+prefix = data_dir + '/' + yyyymmdd + '/'
+os.mkdir(prefix)
+
+# copy channel tsv
+shutil.copy(data_dir + '/channels_2434.tsv', prefix)
+shutil.copy(data_dir + '/' + yesterday+ '/collab_list_2434.tsv', prefix)
+
+sys.exit(0)
+
 # channel -> playlist
-with open('../data/channels_2434.tsv', "r", encoding='utf-8') as fr:
-    with open('../data/playlist_2434.tsv', "w", encoding='utf-8') as fw:
+with open(prefix + '/channels_2434.tsv', "r", encoding='utf-8') as fr:
+    with open(prefix + '/playlist_2434.tsv', "w", encoding='utf-8') as fw:
         tsv = csv.reader(fr, delimiter='\t')
 
         for row in tsv:
@@ -52,8 +70,8 @@ with open('../data/channels_2434.tsv', "r", encoding='utf-8') as fr:
             sleep(1)
 
 # playlist -> videolist
-with open('../data/playlist_2434.tsv', "r", encoding='utf-8') as fr:
-    with open('../data/video_list_2434.tsv', "w", encoding='utf-8') as fw:
+with open(prefix + '/playlist_2434.tsv', "r", encoding='utf-8') as fr:
+    with open(prefix + '/video_list_2434.tsv', "w", encoding='utf-8') as fw:
         tsv = csv.reader(fr, delimiter='\t')
 
         for row in tsv:
@@ -76,7 +94,7 @@ with open('../data/playlist_2434.tsv', "r", encoding='utf-8') as fr:
                 # 取得失敗してたら飛ばす
                 if "items" not in playlist_result:
                     sleep(1)
-                    continue
+                    break
 
                 id_list = []
                 for i in range(len(playlist_result["items"])):
@@ -96,7 +114,7 @@ with open('../data/playlist_2434.tsv', "r", encoding='utf-8') as fr:
 
 # videolist -> collab_list
 exist_video_set = set()
-with open('../data/collab_list_2434.tsv', "r", encoding='utf-8') as fr:
+with open(prefix + '/collab_list_2434.tsv', "r", encoding='utf-8') as fr:
     tsv = csv.reader(fr, delimiter='\t')
 
     for row in tsv:
@@ -107,7 +125,7 @@ with open('../data/collab_list_2434.tsv', "r", encoding='utf-8') as fr:
         exist_video_set.add(video_id)
 
 new_video_id_list = []
-with open('../data/video_list_2434.tsv', "r", encoding='utf-8') as fr:
+with open(prefix + '/video_list_2434.tsv', "r", encoding='utf-8') as fr:
     tsv = csv.reader(fr, delimiter='\t')
 
     for row in tsv:
@@ -115,7 +133,7 @@ with open('../data/video_list_2434.tsv', "r", encoding='utf-8') as fr:
         if video_id not in exist_video_set:
             new_video_id_list.append(video_id)
 
-with open('../data/collab_list_2434.tsv', "a", encoding='utf-8') as fw:
+with open(prefix + '/collab_list_2434.tsv', "w", encoding='utf-8') as fw:
     for start_index in range(0, len(new_video_id_list), 50):
         end_index = min(start_index + 50, len(new_video_id_list))
 
