@@ -9,9 +9,11 @@ import re
 import os
 import datetime
 import shutil
+from pathlib import Path
 
 bin_dir=os.path.dirname(os.path.abspath(__file__))
 data_dir = os.path.normpath(os.path.join(bin_dir, '../data/'))
+video_dir = os.path.normpath(os.path.join(bin_dir, '../video/'))
 base_dir = os.path.normpath(os.path.join(bin_dir, '../'))
 
 channel_url = 'https://www.googleapis.com/youtube/v3/channels'
@@ -23,21 +25,15 @@ video_url = 'https://www.googleapis.com/youtube/v3/videos'
 #{
 #    "youtube_dataAPI_token": "YOUR API TOKEN"
 #}
-with open(base_dir + '/secrets.json', "r") as f:
+with open(base_dir + '/settings/secrets.json', "r") as f:
     secrets = json.load(f)
 
 yyyymmdd = datetime.date.today().strftime("%Y%m%d")
-yesterday = (datetime.date.today() - datetime.timedelta(days=1)).strftime("%Y%m%d")
-
 prefix = data_dir + '/' + yyyymmdd + '/'
 os.mkdir(prefix)
 
-# copy channel tsv
-shutil.copy(data_dir + '/channels_2434.tsv', prefix)
-shutil.copy(data_dir + '/' + yesterday+ '/collab_list_2434.tsv', prefix)
-
 # channel -> playlist
-with open(prefix + '/channels_2434.tsv', "r", encoding='utf-8') as fr:
+with open(base_dir + '/settings/channels_2434.tsv', "r", encoding='utf-8') as fr:
     with open(prefix + '/playlist_2434.tsv', "w", encoding='utf-8') as fw:
         tsv = csv.reader(fr, delimiter='\t')
 
@@ -76,6 +72,7 @@ with open(prefix + '/playlist_2434.tsv', "r", encoding='utf-8') as fr:
         for row in tsv:
             pageToken = ""
             while True:
+                sleep(1)
                 channel_name = row[0]
                 channel_id = row[1]
                 playlist_id = row[2]
@@ -92,7 +89,6 @@ with open(prefix + '/playlist_2434.tsv', "r", encoding='utf-8') as fr:
 
                 # 取得失敗してたら飛ばす
                 if "items" not in playlist_result:
-                    sleep(1)
                     break
 
                 id_list = []
@@ -103,81 +99,52 @@ with open(prefix + '/playlist_2434.tsv', "r", encoding='utf-8') as fr:
                     fw.write(channel_name + "\t" + channel_id + "\t" + video_id + "\t" + publishedAt + "\n")
                     print(channel_name + "\t" + channel_id + "\t" + video_id + "\t" + publishedAt)
                         
-                sleep(1)
-
                 # 残りのアイテム数がmaxResultsを超えている場合はnextPageTokenが帰ってくる
                 if "nextPageToken" in playlist_result:
                     pageToken = playlist_result["nextPageToken"]
                 else:
                     break
 
-# videolist -> collab_list
-exist_video_set = set()
-with open(prefix + '/collab_list_2434.tsv', "r", encoding='utf-8') as fr:
-    tsv = csv.reader(fr, delimiter='\t')
+# すでに取得ずみの動画をチェック
+p = Path(base_dir + "/video/")
+exist_video_list = []
+for video_path in p.glob("*.json"):
+    video_file_name = video_path.as_posix()
+    video_id = video_file_name.split("/")[-1].split(".")[0]
+    exist_video_list.append(video_id)
 
-    for row in tsv:
-        channel_name = row[0]
-        channel_id = row[1]
-        video_id = row[2]
-        collab_channel_id = row[3]
-        exist_video_set.add(video_id)
-
+# 取得が必要な動画のリストを作る
 new_video_id_list = []
 with open(prefix + '/video_list_2434.tsv', "r", encoding='utf-8') as fr:
     tsv = csv.reader(fr, delimiter='\t')
 
     for row in tsv:
         video_id = row[2]
-        if video_id not in exist_video_set:
+        if video_id not in exist_video_list:
             new_video_id_list.append(video_id)
 
-with open(prefix + '/collab_list_2434.tsv', "w", encoding='utf-8') as fw:
-    for start_index in range(0, len(new_video_id_list), 50):
-        end_index = min(start_index + 50, len(new_video_id_list))
+# 取得する動画について順番にAPIを叩いていく
+for start_index in range(0, len(new_video_id_list), 50):
+    end_index = min(start_index + 50, len(new_video_id_list))
 
-        param = {
-            'key': secrets["youtube_dataAPI_token"]
-            , 'id': ','.join(new_video_id_list[start_index:end_index])
-            , 'part': 'snippet'
-        }
+    param = {
+        'key': secrets["youtube_dataAPI_token"]
+        , 'id': ','.join(new_video_id_list[start_index:end_index])
+        , 'part': 'snippet'
+    }
 
-        req = requests.get(video_url, params=param)
-        video_list_result = req.json()
+    req = requests.get(video_url, params=param)
+    video_list_result = req.json()
 
-        # 取得失敗してたら飛ばす
-        if "items" not in video_list_result:
-            sleep(1)
-            continue
-
-        id_list = []
-        for i in range(len(video_list_result["items"])):
-            url_regex = r'((http|https)://www\.youtube\.com/channel/((\w|\-|_)+))'
-            m = re.findall(url_regex, video_list_result["items"][i]["snippet"]["description"])
-
-            video_id = video_list_result["items"][i]["id"]
-            channel_name = video_list_result["items"][i]["snippet"]["channelTitle"]
-            channel_id = video_list_result["items"][i]["snippet"]["channelId"]
-
-            collab_id_list = []
-            for str_tup in m:
-                collab_id = str_tup[2]
-
-                # 自分のチャンネルだったら飛ばす
-                if channel_id == collab_id:
-                    continue
-
-                # typo? とかでinvalidなid拾うことがあるのでチェック
-                if len(collab_id) == 24:
-                    collab_id_list.append(collab_id)
-
-            if len(collab_id_list) > 0:
-                for collab_id in collab_id_list:
-                    fw.write(channel_name + "\t" + channel_id + "\t" + video_id + "\t" + collab_id + "\n")
-                    print(channel_name + "\t" + channel_id + "\t" + video_id + "\t" + collab_id)
-                    
-            else:
-                fw.write(channel_name + "\t" + channel_id + "\t" + video_id + "\t" + "" + "\n")
-                print(channel_name + "\t" + channel_id + "\t" + video_id + "\t" + "")
-
+    # 取得失敗してたら飛ばす
+    if "items" not in video_list_result:
         sleep(1)
+        continue
+
+    id_list = []
+    for i, item in enumerate(video_list_result["items"]):
+        video_id = item["id"]
+        with open(base_dir + "/video/" + video_id + ".json", "w", encoding='utf-8') as fw:
+            fw.write(json.dumps(item, ensure_ascii=False, indent=2))
+
+    sleep(1)
