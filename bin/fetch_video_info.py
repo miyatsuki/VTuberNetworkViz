@@ -90,7 +90,7 @@ with open(prefix + '/playlist_2434.tsv', "r", encoding='utf-8') as fr, open(pref
                 break
 
             id_list = []
-            for item in playlist_result["items"]):
+            for item in playlist_result["items"]:
                 video_id = item["contentDetails"]["videoId"]
                 publishedAt = item["snippet"]["publishedAt"]
 
