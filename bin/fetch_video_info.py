@@ -33,77 +33,75 @@ prefix = data_dir + '/' + yyyymmdd + '/'
 os.mkdir(prefix)
 
 # channel -> playlist
-with open(base_dir + '/settings/channels_2434.tsv', "r", encoding='utf-8') as fr:
-    with open(prefix + '/playlist_2434.tsv', "w", encoding='utf-8') as fw:
-        tsv = csv.reader(fr, delimiter='\t')
+with open(base_dir + '/settings/channels_2434.tsv', "r", encoding='utf-8') as fr, open(prefix + '/playlist_2434.tsv', "w", encoding='utf-8') as fw:
+    tsv = csv.reader(fr, delimiter='\t')
 
-        for row in tsv:
-            pageToken = ""
+    for row in tsv:
+        pageToken = ""
+        channel_id = row[1]
+
+        param = {
+            'key': secrets["youtube_dataAPI_token"]
+            , 'id': channel_id
+            , 'part': 'snippet, contentDetails, statistics'
+            , 'maxResults': '50'
+            , 'pageToken': pageToken
+        }
+
+        req = requests.get(channel_url, params=param)
+        channel_result = req.json()
+        print(channel_result)
+
+        if len(channel_result["items"]) > 0:
+            channel_name = channel_result["items"][0]["snippet"]["title"]
+            playlist_id = channel_result["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
+            thumbnail_image_url = channel_result["items"][0]["snippet"]["thumbnails"]["medium"]["url"]
+            subscriberCount = channel_result["items"][0]["statistics"]["subscriberCount"]
+
+            fw.write("\t".join([channel_name, channel_id, playlist_id, thumbnail_image_url, subscriberCount]) + "\n")
+            print("\t".join([channel_name, channel_id, playlist_id, thumbnail_image_url, subscriberCount]))
+
+        sleep(1)
+
+# playlist -> videolist
+with open(prefix + '/playlist_2434.tsv', "r", encoding='utf-8') as fr, open(prefix + '/video_list_2434.tsv', "w", encoding='utf-8') as fw:
+    tsv = csv.reader(fr, delimiter='\t')
+
+    for row in tsv:
+        pageToken = ""
+        while True:
+            sleep(1)
+            channel_name = row[0]
             channel_id = row[1]
-
+            playlist_id = row[2]
             param = {
                 'key': secrets["youtube_dataAPI_token"]
-                , 'id': channel_id
-                , 'part': 'snippet, contentDetails, statistics'
+                , 'playlistId': playlist_id
+                , 'part': 'snippet, contentDetails'
                 , 'maxResults': '50'
                 , 'pageToken': pageToken
             }
 
-            req = requests.get(channel_url, params=param)
-            channel_result = req.json()
-            print(channel_result)
+            req = requests.get(playlist_url, params=param)
+            playlist_result = req.json()
 
-            if len(channel_result["items"]) > 0:
-                channel_name = channel_result["items"][0]["snippet"]["title"]
-                playlist_id = channel_result["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
-                thumbnail_image_url = channel_result["items"][0]["snippet"]["thumbnails"]["medium"]["url"]
-                subscriberCount = channel_result["items"][0]["statistics"]["subscriberCount"]
+            # 取得失敗してたら飛ばす
+            if "items" not in playlist_result:
+                break
 
-                fw.write("\t".join([channel_name, channel_id, playlist_id, thumbnail_image_url, subscriberCount]) + "\n")
-                print("\t".join([channel_name, channel_id, playlist_id, thumbnail_image_url, subscriberCount]))
+            id_list = []
+            for item in playlist_result["items"]):
+                video_id = item["contentDetails"]["videoId"]
+                publishedAt = item["snippet"]["publishedAt"]
 
-            sleep(1)
-
-# playlist -> videolist
-with open(prefix + '/playlist_2434.tsv', "r", encoding='utf-8') as fr:
-    with open(prefix + '/video_list_2434.tsv', "w", encoding='utf-8') as fw:
-        tsv = csv.reader(fr, delimiter='\t')
-
-        for row in tsv:
-            pageToken = ""
-            while True:
-                sleep(1)
-                channel_name = row[0]
-                channel_id = row[1]
-                playlist_id = row[2]
-                param = {
-                    'key': secrets["youtube_dataAPI_token"]
-                    , 'playlistId': playlist_id
-                    , 'part': 'snippet, contentDetails'
-                    , 'maxResults': '50'
-                    , 'pageToken': pageToken
-                }
-
-                req = requests.get(playlist_url, params=param)
-                playlist_result = req.json()
-
-                # 取得失敗してたら飛ばす
-                if "items" not in playlist_result:
-                    break
-
-                id_list = []
-                for i in range(len(playlist_result["items"])):
-                    video_id = playlist_result["items"][i]["contentDetails"]["videoId"]
-                    publishedAt = playlist_result["items"][i]["snippet"]["publishedAt"]
-
-                    fw.write(channel_name + "\t" + channel_id + "\t" + video_id + "\t" + publishedAt + "\n")
-                    print(channel_name + "\t" + channel_id + "\t" + video_id + "\t" + publishedAt)
-                        
-                # 残りのアイテム数がmaxResultsを超えている場合はnextPageTokenが帰ってくる
-                if "nextPageToken" in playlist_result:
-                    pageToken = playlist_result["nextPageToken"]
-                else:
-                    break
+                fw.write(channel_name + "\t" + channel_id + "\t" + video_id + "\t" + publishedAt + "\n")
+                print(channel_name + "\t" + channel_id + "\t" + video_id + "\t" + publishedAt)
+                    
+            # 残りのアイテム数がmaxResultsを超えている場合はnextPageTokenが帰ってくる
+            if "nextPageToken" in playlist_result:
+                pageToken = playlist_result["nextPageToken"]
+            else:
+                break
 
 # すでに取得ずみの動画をチェック
 p = Path(base_dir + "/video/")
