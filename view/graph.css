@@ -1,0 +1,5 @@
+.node {
+	stroke: black;
+	transition: transform 1s ease;
+	will-change: transform;
+}

@@ -5,7 +5,10 @@
         <script src="https://cdn.jsdelivr.net/npm/pca-js@1.0.0/pca.min.js"></script>
 
         <script type="text/javascript" src="plot_data.js" charset="UTF-8"></script>
-        <script type="text/javascript" src="graph.js" charset="UTF-8"></script>
+        <script type="text/javascript" src="graph_animation.js" charset="UTF-8"></script>
+        <link rel="stylesheet" href="graph.css">
+
+
         <!-- Compiled and minified CSS -->
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
 
@@ -31,33 +34,26 @@
                 <div class="col s12 xl12">
                         <div class="card">
                             <div class="card-title">
-                                VTuberプロット(にじさんじ）
+                                {{ unixtimeToYYYYMMDD(unixtime) }}
                             </div>
                             <div class="card-image">
-                                <svg viewbox="0 0 800 800">
-                                    <line x1=400 y1=0 x2=400 y2=800 stroke="black"></line>
-                                    <line x1=0 y1=400 x2=800 y2=400 stroke="black"></line>
-                                        
-                                    <g v-for="(pos_info, index) in items">
+                                <svg viewbox="0 0 6400 6400">
+                                    <g v-for="(pos_info, index) in positions">
                                         <g v-for="(times, to_index) in collab_times_mat[index]">
                                             <line v-if="times > 0" 
-                                                :x1="(pos_info.posX+1)*400" :y1="(-pos_info.posY+1)*400"
-                                                :x2="(items[to_index].posX+1)*400" :y2="(-items[to_index].posY+1)*400"
+                                                :x1="pos_info.posX" :y1="pos_info.posY"
+                                                :x2="positions[to_index].posX" :y2="positions[to_index].posY"
                                                 stroke="black" :stroke-width="getLineWidth(index, to_index)*30" :style="{'stroke-opacity': times*0.05}"></line>
                                         </g>
                                     </g>
-    
-                                    <g v-for="(pos_info, index) in items">
-                                        <clipPath :id="getClipDefName(pos_info)">
-                                            <circle :cx="(pos_info.posX+1)*400" :cy="(-pos_info.posY+1)*400" :r="getCircleSize(pos_info)">
+
+                                    <g class="node" v-for="(pos_info, index) in positions">
+                                        <clipPath :id="getClipDefName(index)">
+                                            <circle :cx="pos_info.posX" :cy="pos_info.posY" :r="getCircleSize(index)">
                                         </clipPath>            
                                         <title>{{ pos_info.name }}</title>
-                                        <image :xlink:href="pos_info.url" :x="(pos_info.posX+1)*400-getCircleSize(pos_info)" :y="(-pos_info.posY+1)*400-getCircleSize(pos_info)" :height="getCircleSize(pos_info)*2" :width="getCircleSize(pos_info)*2" opacity="1" :style="getClipUsageName(pos_info)"/>
-                                        <circle :cx="(pos_info.posX+1)*400" :cy="(-pos_info.posY+1)*400" :r="getCircleSize(pos_info)" :fill="getDebutTypeColor(pos_info)" :stroke="getDebutTypeColor(pos_info)" stroke-width="1" fill-opacity="0" opacity="0.5"></circle>
-
-                                        <!--
-                                            <text :x="(pos_info.posX+1)*400-40" :y="(-pos_info.posY+1)*400-10">{{ pos_info.name }}</text>
-                                        -->
+                                        <image :xlink:href="getImageUrl(index)" :x="pos_info.posX-getCircleSize(index)" :y="pos_info.posY-getCircleSize(index)" :height="getCircleSize(index)*2" :width="getCircleSize(index)*2" opacity="1" :style="getClipUsageName(index)"/>
+                                        <circle :cx="pos_info.posX" :cy="pos_info.posY" :r="getCircleSize(index)" stroke-width="1" fill-opacity="0" opacity="0.5"></circle>
                                     </g>
                                 </svg>
                             </div>

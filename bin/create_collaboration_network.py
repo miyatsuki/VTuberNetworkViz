@@ -54,8 +54,12 @@ p = Path(base_dir + "/video/")
 video_info_list = []
 for video_path in p.glob("*.json"):
     with open(video_path) as f:
-        video_info = VideoInfo(json.load(f))
-        video_info_list.append(video_info)
+        try:
+            video_info = VideoInfo(json.load(f))
+            video_info_list.append(video_info)
+        except Exception:
+            continue
+
 
 # コラボ情報を縦持ちのファイルにして出力
 with open(base_dir + '/data/network.tsv', 'w') as f:

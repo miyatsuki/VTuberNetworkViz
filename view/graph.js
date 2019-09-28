@@ -7,7 +7,7 @@ onload = function() {
         data: {
           items: plot_data,
           collab_times_mat: collab_times_mat,
-          debut_map: debut_map,
+          //debut_map: debut_map,
           pca_vec_all: [],
           song_list: [],
           singer_list: ['YuNi'],
@@ -30,7 +30,12 @@ onload = function() {
             }
             return collab_times_mat[from_index][to_index]/sum
           },
+          getCircleSize: function(pos_info){
+            return Math.sqrt(debut_map[pos_info.name]/1000)*1.5
+          },
           getDebutTypeColor: function(pos_info){
+            return "black"
+
             debut_type = debut_map[pos_info.name]
             console.log(debut_type)
             if(typeof debut_type === "undefined"){
@@ -38,7 +43,6 @@ onload = function() {
             }
 
             /* typeA */
-            /*
             if(debut_type.indexOf("にじさんじ") == 0){
               return "red"
             }else if(debut_type.indexOf("ゲーマーズ") == 0){
@@ -47,7 +51,9 @@ onload = function() {
               return "green"
             }else if(debut_type.indexOf("統合後") == 0){
               return "yellow"
-            }*/
+            }else if(debut_type.indexOf("ホロライブ") == 0){
+              return "skyblue"
+            }
 
             /* typeB */
             //にじさんじ1期
@@ -67,6 +73,7 @@ onload = function() {
             //統合後20190402
             //統合後20190429
 
+            /*
             if(debut_type.indexOf("にじさんじ1期") == 0){
               return "red"
             }else if(debut_type.indexOf("にじさんじ2期") == 0){
@@ -98,6 +105,7 @@ onload = function() {
             }else if(debut_type.indexOf("統合後20190402") == 0){
               return "white"
             }
+            */
           },
           getNearestSingersFromSong: function(){
 

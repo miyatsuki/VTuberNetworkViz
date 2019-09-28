@@ -4,6 +4,8 @@ import sys
 import networkx as nx
 import datetime
 import os
+import svgwrite
+import json
 
 bin_dir=os.path.dirname(os.path.abspath(__file__))
 data_dir = os.path.normpath(os.path.join(bin_dir, '../data/'))
@@ -35,11 +37,9 @@ class CollabNode:
         info = [self.from_channel, str(self.to_channel), str(self.published_at)]
         return "\t".join(info)
 
-
 start_ut = int(sys.argv[1])
 end_ut = int(sys.argv[2])
 
-channel_list = []
 channel_id_name_map = {}
 channel_id_debut_map = {}
 with open('../settings/channels_2434.tsv', "r", encoding='utf-8') as f:
@@ -49,20 +49,8 @@ with open('../settings/channels_2434.tsv', "r", encoding='utf-8') as f:
         channel_id = row[1]
         debut_type = row[2]
 
-        channel_list.append(channel_id)
         channel_id_name_map[channel_id] = channel_name
         channel_id_debut_map[channel_name] = debut_type
-
-channel_id_image_url_map = {}
-#with open('../data/playlist_2434.tsv', "r", encoding='utf-8') as f:
-#    tsv = csv.reader(f, delimiter='\t')
-#    for row in tsv:
-#        channel_name = row[0]
-#        channel_id = row[1]
-#        playlist_id = row[2]
-#        channel_image_url = row[3]
-
-#        channel_id_image_url_map[channel_id] = channel_image_url
 
 collabNode_list = []
 with open('../data/network.tsv', "r", encoding='utf-8') as f:
@@ -77,26 +65,24 @@ with open('../data/network.tsv', "r", encoding='utf-8') as f:
         collabNode_list.append(node)
 
 counter_ut = start_ut
-channel_list = []
-previous_pos_map = {}
+result_map = {}
 
+channel_list = list(channel_id_name_map.keys())
 while counter_ut <= end_ut:
     datetime_jst = str(datetime.datetime.fromtimestamp(counter_ut))
     print(datetime_jst)
 
     included_node_list = []
-
     for node in collabNode_list:
-        if node.published_at <= counter_ut:
+        # 30日以内の物のみカウント
+        if (counter_ut - 3600*24*30) <= node.published_at <= counter_ut:
             included_node_list.append(node)
-            if node.from_channel not in channel_list:
-                channel_list.append(node.from_channel)
-            if node.to_channel is not None and node.to_channel not in channel_list:
-                channel_list.append(node.to_channel)
 
     collab_times_mat = np.zeros((len(channel_list), len(channel_list)))
     for node in included_node_list:
         if node.to_channel is None:
+            continue
+        if node.from_channel not in channel_list or node.to_channel not in channel_list:
             continue
 
         # TODO: コラボ人数に基づく正規化
@@ -105,29 +91,50 @@ while counter_ut <= end_ut:
         collab_times_mat[base_channel_id_index, collab_channel_id_index] += 1
         collab_times_mat[collab_channel_id_index, base_channel_id_index] += 1
 
-    max_collab_times = np.max(collab_times_mat)
+    result_map[counter_ut] = collab_times_mat.tolist()
+    counter_ut += 3600 * 24
 
-    # コラボ回数を重みとする
-    G = nx.Graph()
-    for i in range(collab_times_mat.shape[0]):
-        G.add_node(i)
-        for j in range(collab_times_mat.shape[0]):
-            if i < j and collab_times_mat[i, j] > 0:
-                G.add_edge(i, j, weight=collab_times_mat[i, j])
 
-    np.random.seed(0)
-    for i in range(len(channel_list)):
-        if i not in previous_pos_map:
-            previous_pos_map[i] = np.random.rand(1, 2)[0]/100.0
+data = {}
+data["collab_mat_list"] = result_map
+data["channel_list"] = channel_list
+data["channels"] = {}
+with open('../data/20190922/playlist_2434.tsv', "r", encoding='utf-8') as f:
+    tsv = csv.reader(f, delimiter='\t')
+    for row in tsv:
+        channel_id = row[1]
+        data["channels"][channel_id] = {}
+        data["channels"][channel_id]["name"] = channel_id_name_map[channel_id]
+        data["channels"][channel_id]["image_url"] = row[3]
 
-    spring_pos = nx.spring_layout(G, seed=6, pos=previous_pos_map)
+ut_channel_subscriber_map = {}
+counter_ut = start_ut
+while counter_ut <= end_ut:
+    datetime_jst = str(datetime.datetime.fromtimestamp(counter_ut))
+    dateYYYYMMDD = datetime_jst.split(" ")[0].replace("-", "")
+    print(dateYYYYMMDD)
 
-    for i in range(len(channel_list)):
-        previous_pos_map[i] = spring_pos[i]
+    channel_subscriber_map = {}
+    with open('../data/' + dateYYYYMMDD + '/playlist_2434.tsv', "r", encoding='utf-8') as f:
+        tsv = csv.reader(f, delimiter='\t')
+        for row in tsv:
+            channel_id = row[1]
+            subscriber_num = int(row[4])
+            channel_subscriber_map[channel_id] = subscriber_num
 
-    date_jst = datetime_jst.split(" ")[0].replace("-", "")
-    with open(data_dir + "/pos/" + date_jst + ".tsv", "w") as f:
-        for i in range(len(channel_list)):
-            f.write(str(i) + "\t" + str(previous_pos_map[i][0]) + "\t" + str(previous_pos_map[i][1]) + "\n")
+    ut_channel_subscriber_map[counter_ut] = []
+    for i, channel_id in enumerate(channel_list):
+        if channel_id in channel_subscriber_map:
+            if channel_subscriber_map[channel_id] > 0:
+                ut_channel_subscriber_map[counter_ut].append(channel_subscriber_map[channel_id])
+            else:
+                ut_channel_subscriber_map[counter_ut].append(ut_channel_subscriber_map[(counter_ut - 3600*24)][i])
+        else:
+            ut_channel_subscriber_map[counter_ut].append(0)
 
     counter_ut += 3600 * 24
+
+data["subscriber_map"] = ut_channel_subscriber_map
+
+with open("data.json", 'w') as f:
+    json.dump(data, f, ensure_ascii=False)
